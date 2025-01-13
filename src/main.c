@@ -25,7 +25,7 @@ int main ()
 	Texture wabbit = LoadTexture("wabbit_alpha.png");
 
 	Rectangle rec;
-	rec.x = 200;
+	rec.x = 0;
 	rec.y = 0;
 	rec.width = 100;
 	rec.height = 40;
@@ -42,27 +42,44 @@ int main ()
 		SaveFileText(saves_name, '\0');
 		loaded_text = "nothing";
 	}
+
+	Rectangle scroll_rect = {0, 30, WIDTH, 500};
+	Rectangle scroll_content = {0, 30, WIDTH - 14, 1000};
+	Rectangle scroll_view = {0, 30, WIDTH - 14, 500};
+	Vector2 scroll_vec;
+
+	int active_toggle = 0;
+	int start_id_toggle = 0;
+	Rectangle toggle_group_bounds = { 0, 0, WIDTH / 2, 30 };
 	
 	printf("loaded text %s", loaded_text);
+
+	const char * DEBUG_TEXT = "Cur Toggle ";
+	char toggle_degug_text[20];
+	char cur_toggle_text[2] = "0";
 	
 	// game loop
 	while (!WindowShouldClose())		// run the loop untill the user presses ESCAPE or presses the Close button on the window
 	{
-		// drawing
 		BeginDrawing();
 
-		// Setup the back buffer for drawing (clear color and depth buffers)
 		ClearBackground(BLACK);
 
-		// draw some text using the default font
-		DrawText(loaded_text, 200, 200, 40, WHITE);
+		GuiToggleGroup(toggle_group_bounds, "Completed; TO-DO", &start_id_toggle);
 
-		// draw our texture to the screen
-		DrawTextureEx(wabbit, (Vector2){ 0, 0 }, 0, 5, WHITE);
+		GuiScrollPanel(scroll_rect, NULL, scroll_content, &scroll_vec, &scroll_view);
 
-		GuiButton(rec, "Click");
+		BeginScissorMode(scroll_rect.x, scroll_rect.y, scroll_rect.width, scroll_rect.height);
+		
+		sprintf(cur_toggle_text, "%d", start_id_toggle);
+		strcpy(toggle_degug_text, DEBUG_TEXT);
+		strcat(toggle_degug_text, cur_toggle_text);
+		DrawText(toggle_degug_text, 200 + scroll_vec.x, 200 + scroll_vec.y, 40, BLACK);
+		
+		EndScissorMode();
 
-		// end the frame and get ready for the next one  (display frame, poll input, etc...)
+		//GuiButton(rec, "Click");
+
 		EndDrawing();
 	}
 
