@@ -5,10 +5,27 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
+typedef struct Task
+{
+	char *desc;
+	Rectangle rect;
+} Task;
+
 const int WIDTH = 640;
 const int HEIGHT = 640;
 const char * WINDOW_NAME = "To Do List";
 
+Rectangle text_box_rect = {0, HEIGHT - 40, WIDTH - 50, 30};
+char text_box_message[40];
+bool text_box_active = false;
+
+Rectangle group_box_rect = {2, 100, WIDTH - 16, 30};
+Rectangle element_btn_complete_rect = {WIDTH - 16 - 50, 0, 50, 30};
+
+Task test_task;
+
+void DrawAndHandleInputBox();
+void DrawTaskElement(Task task, int y_pos);
 
 int main ()
 {
@@ -43,13 +60,13 @@ int main ()
 		loaded_text = "nothing";
 	}
 
-	Rectangle scroll_rect = {0, 30, WIDTH, 500};
+	Rectangle scroll_rect = {0, 30, WIDTH, HEIGHT - 70};
 	Rectangle scroll_content = {0, 30, WIDTH - 14, 1000};
-	Rectangle scroll_view = {0, 30, WIDTH - 14, 500};
+	Rectangle scroll_view = {0, 30, WIDTH - 14, HEIGHT - 70};
 	Vector2 scroll_vec;
 
 	int active_toggle = 0;
-	int start_id_toggle = 0;
+	int start_id_toggle = 1;
 	Rectangle toggle_group_bounds = { 0, 0, WIDTH / 2, 30 };
 	
 	printf("loaded text %s", loaded_text);
@@ -57,13 +74,17 @@ int main ()
 	const char * DEBUG_TEXT = "Cur Toggle ";
 	char toggle_degug_text[20];
 	char cur_toggle_text[2] = "0";
+
+	Rectangle btn_add_rect = {WIDTH - 50, HEIGHT - 40, 50, 30};
+	const char * BTN_ADD_TITLE = "Add";
+
+	test_task.desc = "Some test task";
 	
-	// game loop
-	while (!WindowShouldClose())		// run the loop untill the user presses ESCAPE or presses the Close button on the window
+	while (!WindowShouldClose())
 	{
 		BeginDrawing();
 
-		ClearBackground(BLACK);
+		ClearBackground(WHITE);
 
 		GuiToggleGroup(toggle_group_bounds, "Completed; TO-DO", &start_id_toggle);
 
@@ -75,10 +96,16 @@ int main ()
 		strcpy(toggle_degug_text, DEBUG_TEXT);
 		strcat(toggle_degug_text, cur_toggle_text);
 		DrawText(toggle_degug_text, 200 + scroll_vec.x, 200 + scroll_vec.y, 40, BLACK);
+		DrawText(text_box_message, 200 + scroll_vec.x, 300 + scroll_vec.y, 40, BLACK);
+
+		DrawTaskElement(test_task, scroll_vec.y + 32);
+		DrawTaskElement(test_task, scroll_vec.y + 32 + 30 + 2);
 		
 		EndScissorMode();
 
-		//GuiButton(rec, "Click");
+        DrawAndHandleInputBox();
+
+		GuiButton(btn_add_rect, BTN_ADD_TITLE);
 
 		EndDrawing();
 	}
@@ -90,4 +117,30 @@ int main ()
 	// destroy the window and cleanup the OpenGL context
 	CloseWindow();
 	return 0;
+}
+
+void DrawAndHandleInputBox()
+{
+	if (CheckCollisionPointRec(GetMousePosition(), text_box_rect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) 
+	{
+        text_box_active = true;
+    } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) 
+	{
+        text_box_active = false;
+    }
+
+	if (GuiTextBox(text_box_rect, text_box_message, sizeof(text_box_message), text_box_active)) 
+	{
+        text_box_active = !text_box_active;
+    }
+}
+
+void DrawTaskElement(Task task, int y_pos)
+{
+	group_box_rect.y = y_pos;
+	element_btn_complete_rect.y = y_pos;
+
+	GuiPanel(group_box_rect, NULL);
+	DrawText(task.desc, group_box_rect.x + 6, group_box_rect.y + 6, 10, BLACK);
+	GuiButton(element_btn_complete_rect, "Complete");
 }
