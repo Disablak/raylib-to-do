@@ -12,7 +12,7 @@ typedef struct Task
 } Task;
 
 const int WIDTH = 640;
-const int HEIGHT = 640;
+const int HEIGHT = 480;
 const char * WINDOW_NAME = "To Do List";
 
 Rectangle text_box_rect = {0, HEIGHT - 40, WIDTH - 50, 30};
@@ -20,26 +20,26 @@ char text_box_message[40];
 bool text_box_active = false;
 
 Rectangle group_box_rect = {2, 100, WIDTH - 16, 30};
-Rectangle element_btn_complete_rect = {WIDTH - 16 - 50, 0, 50, 30};
+Rectangle element_btn_complete_rect = {WIDTH - (14 + 50), 0, 50, 30};
 
-Task test_task;
+Task *to_do_tasks;
+int to_do_tasks_length;
 
+Task *completed_tasks;
+int completed_tasks_length;
+
+void LoadTasksFromFile();
 void DrawAndHandleInputBox();
-void DrawTaskElement(Task task, int y_pos);
+void DrawTaskElement(Task task, int y_pos, int task_id);
+void MoveTaskFromToDoToComplete(int id);
 
 int main ()
 {
-	// Tell the window to use vsync and work on high DPI displays
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
-
-	// Create the window and OpenGL context
 	InitWindow(WIDTH, HEIGHT, WINDOW_NAME);
-
-	// Utility function from resource_dir.h to find the resources folder and set it as the current working directory so we can load from it
 	SearchAndSetResourceDir("resources");
 
-	// Load a texture from the resources directory
-	Texture wabbit = LoadTexture("wabbit_alpha.png");
+	LoadTasksFromFile();
 
 	Rectangle rec;
 	rec.x = 0;
@@ -78,7 +78,7 @@ int main ()
 	Rectangle btn_add_rect = {WIDTH - 50, HEIGHT - 40, 50, 30};
 	const char * BTN_ADD_TITLE = "Add";
 
-	test_task.desc = "Some test task";
+	
 	
 	while (!WindowShouldClose())
 	{
@@ -98,8 +98,12 @@ int main ()
 		DrawText(toggle_degug_text, 200 + scroll_vec.x, 200 + scroll_vec.y, 40, BLACK);
 		DrawText(text_box_message, 200 + scroll_vec.x, 300 + scroll_vec.y, 40, BLACK);
 
-		DrawTaskElement(test_task, scroll_vec.y + 32);
-		DrawTaskElement(test_task, scroll_vec.y + 32 + 30 + 2);
+		//DrawTaskElement(test_task, scroll_vec.y + 32);
+		//DrawTaskElement(test_task, scroll_vec.y + 32 + 30 + 2);
+		for (int i = 0; i < to_do_tasks_length; i++)
+		{
+			DrawTaskElement(to_do_tasks[i], scroll_vec.y + 32 + (i * 32), i);
+		}
 		
 		EndScissorMode();
 
@@ -110,9 +114,8 @@ int main ()
 		EndDrawing();
 	}
 
-	// cleanup
-	// unload our texture so it can be cleaned up
-	UnloadTexture(wabbit);
+	free(to_do_tasks);
+	free(completed_tasks);
 
 	// destroy the window and cleanup the OpenGL context
 	CloseWindow();
@@ -135,12 +138,37 @@ void DrawAndHandleInputBox()
     }
 }
 
-void DrawTaskElement(Task task, int y_pos)
+void DrawTaskElement(Task task, int y_pos, int task_id)
 {
 	group_box_rect.y = y_pos;
 	element_btn_complete_rect.y = y_pos;
 
 	GuiPanel(group_box_rect, NULL);
 	DrawText(task.desc, group_box_rect.x + 6, group_box_rect.y + 6, 10, BLACK);
-	GuiButton(element_btn_complete_rect, "Complete");
+
+	if (GuiButton(element_btn_complete_rect, "Complete"))
+	{
+		MoveTaskFromToDoToComplete(task_id);
+	}
+}
+
+void LoadTasksFromFile()
+{
+	to_do_tasks_length = 2;
+	to_do_tasks = (Task*)malloc(to_do_tasks_length * sizeof(Task));
+	
+	to_do_tasks[0].desc = "First task";
+	to_do_tasks[1].desc = "Second task";
+}
+
+void MoveTaskFromToDoToComplete(int id)
+{
+	for (int i = id; i < to_do_tasks_length - 1; i++) 
+	{
+		to_do_tasks[i] = to_do_tasks[i + 1];
+    }
+
+	to_do_tasks_length--;
+
+	to_do_tasks = realloc(to_do_tasks, to_do_tasks_length * sizeof(Task));
 }
