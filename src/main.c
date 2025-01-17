@@ -8,14 +8,15 @@
 typedef struct Task
 {
 	char *desc;
-	Rectangle rect;
 } Task;
 
 const int WIDTH = 640;
 const int HEIGHT = 480;
-const char * WINDOW_NAME = "To Do List";
+const char *WINDOW_NAME = "To Do List";
 const int TAB_COMPLETED = 0;
 const int TAB_TO_DO = 1;
+const char *SAVES_NAME = "to-do-saves";
+const int DESK_LENGHT = 100;
 
 Rectangle text_box_rect = {0, HEIGHT - 40, WIDTH - 50, 30};
 char text_box_message[40];
@@ -34,13 +35,17 @@ Task *completed_tasks;
 int completed_tasks_length;
 
 void LoadTasksFromFile();
+void SaveTasksToFile();
 void DrawAndHandleInputBox();
 void DrawTaskElement(Task task, int y_pos, int task_id);
-void DrawTaskToDoElement(Task task, int y_pos, int task_id);
+void DrawTaskToDo(Task task, int y_pos, int task_id);
+void DrawTaskCompleted(Task, int y_pos, int task_id);
 void MoveTaskFromToDoToComplete(int id);
 char **SplitStringIntoRows(const char *input, int *rowCount);
 void SetTextToDesc(char **desk, char *text, int *counter);
 void AddNewTask(char *desc);
+void CompleteTask(Task task);
+void DeleteTask(int id);
 
 int main ()
 {
@@ -81,26 +86,18 @@ int main ()
 
 		BeginScissorMode(scroll_rect.x, scroll_rect.y, scroll_rect.width, scroll_rect.height);
 		
-		//sprintf(cur_toggle_text, "%d", toggle_id);
-		//strcpy(toggle_degug_text, DEBUG_TEXT);
-		//strcat(toggle_degug_text, cur_toggle_text);
-		//DrawText(toggle_degug_text, 200 + scroll_vec.x, 200 + scroll_vec.y, 40, BLACK);
-		//DrawText(text_box_message, 200 + scroll_vec.x, 300 + scroll_vec.y, 40, BLACK);
-
-		//DrawTaskElement(test_task, scroll_vec.y + 32);
-		//DrawTaskElement(test_task, scroll_vec.y + 32 + 30 + 2);
 		if (toggle_id == TAB_COMPLETED)
 		{
 			for (int i = 0; i < completed_tasks_length; i++)
 			{
-				DrawTaskElement(completed_tasks[i], scroll_vec.y + 32 + (i * 32), i);
+				DrawTaskCompleted(completed_tasks[i], scroll_vec.y + 32 + (i * 32), i);
 			}
 		}
 		else if (toggle_id == TAB_TO_DO)
 		{
 			for (int i = 0; i < to_do_tasks_length; i++)
 			{
-				DrawTaskToDoElement(to_do_tasks[i], scroll_vec.y + 32 + (i * 32), i);
+				DrawTaskToDo(to_do_tasks[i], scroll_vec.y + 32 + (i * 32), i);
 			}
 		}
 		
@@ -110,6 +107,8 @@ int main ()
 
 		EndDrawing();
 	}
+
+	SaveTasksToFile();
 
 	free(to_do_tasks);
 	free(completed_tasks);
@@ -144,7 +143,17 @@ void DrawAndHandleInputBox()
 	}
 }
 
-void DrawTaskToDoElement(Task task, int y_pos, int task_id)
+void DrawTaskCompleted(Task task, int y_pos, int task_id)
+{
+	DrawTaskElement(task, y_pos, task_id);
+
+	if (GuiButton(element_btn_complete_rect, "Delete"))
+	{
+		DeleteTask(task_id);
+	}
+}
+
+void DrawTaskToDo(Task task, int y_pos, int task_id)
 {
 	DrawTaskElement(task, y_pos, task_id);
 
@@ -160,21 +169,20 @@ void DrawTaskElement(Task task, int y_pos, int task_id)
 	element_btn_complete_rect.y = y_pos;
 
 	GuiPanel(group_box_rect, NULL);
-	DrawText(task.desc, group_box_rect.x + 6, group_box_rect.y + 6, 10, BLACK);
+	DrawText(task.desc, group_box_rect.x + 6, group_box_rect.y + 6, 20, BLACK);
 }
 
 void LoadTasksFromFile()
 {
-	const char *saves_name = "to-do-saves";
 	char *loaded_text;
 
-	if (FileExists(saves_name))
+	if (FileExists(SAVES_NAME))
 	{
-		loaded_text = LoadFileText(saves_name);
+		loaded_text = LoadFileText(SAVES_NAME);
 	}
 	else
 	{
-		SaveFileText(saves_name, "\0");
+		SaveFileText(SAVES_NAME, "\0");
 		loaded_text = "\0";
 	}
 	//printf(loaded_text);
@@ -227,12 +235,12 @@ void removeFirstChar(char *str) {
 void SetTextToDesc(char **desk, char *text, int *counter)
 {
 	removeFirstChar(text);
-	*desk = malloc(100 * sizeof(char));
+	*desk = malloc(DESK_LENGHT * sizeof(char));
 	strcpy(*desk, text);
 	(*counter)++;
 }
 
-void MoveTaskFromToDoToComplete(int id)
+void RemoveTaskFromToDo(int id)
 {
 	for (int i = id; i < to_do_tasks_length - 1; i++) 
 	{
@@ -240,8 +248,14 @@ void MoveTaskFromToDoToComplete(int id)
     }
 
 	to_do_tasks_length--;
-
 	to_do_tasks = realloc(to_do_tasks, to_do_tasks_length * sizeof(Task));
+}
+
+void MoveTaskFromToDoToComplete(int id)
+{
+	Task task = to_do_tasks[id];
+	RemoveTaskFromToDo(id);
+	CompleteTask(task);
 }
 
 char **SplitStringIntoRows(const char *input, int *rowCount) {
@@ -289,6 +303,67 @@ void AddNewTask(char *desc)
 {
 	to_do_tasks_length++;
 	to_do_tasks = (Task*)realloc(to_do_tasks, to_do_tasks_length * sizeof(Task));
-	to_do_tasks[to_do_tasks_length - 1].desc = malloc(100 * sizeof(char));
+	to_do_tasks[to_do_tasks_length - 1].desc = malloc(DESK_LENGHT * sizeof(char));
 	strcpy(to_do_tasks[to_do_tasks_length - 1].desc, desc);
+}
+
+char *GetStringByTask(Task task, bool is_completed)
+{
+	char *line = malloc(DESK_LENGHT * sizeof(char));
+	
+	if (is_completed)
+	{
+		strcat(line, "/");
+	}else
+	{
+		strcat(line, "*");
+	}
+	
+	strcat(line, task.desc);
+	strcat(line, "\n");
+
+	return line;
+}
+
+void SaveTasksToFile()
+{
+	char *file_text = malloc((completed_tasks_length + to_do_tasks_length) * DESK_LENGHT * sizeof(char));
+	int cur_char_idx = 0;
+	for (size_t i = 0; i < completed_tasks_length; i++)
+	{
+		char *line = GetStringByTask(completed_tasks[i], true);
+		strcat(file_text, line);
+		free(line);
+	}
+
+	for (size_t i = 0; i < to_do_tasks_length; i++)
+	{
+		char *line = GetStringByTask(to_do_tasks[i], false);
+		strcat(file_text, line);
+		free(line);
+	}
+	
+	SaveFileText(SAVES_NAME, file_text);
+
+	free(file_text);
+}
+
+void CompleteTask(Task task)
+{
+	completed_tasks_length++;
+	completed_tasks = realloc(completed_tasks, completed_tasks_length * sizeof(Task));
+	completed_tasks[completed_tasks_length - 1] = task;
+}
+
+void DeleteTask(int id)
+{
+	free(completed_tasks[id].desc);
+
+	for (int i = id; i < completed_tasks_length - 1; i++) 
+	{
+		completed_tasks[i] = completed_tasks[i + 1];
+    }
+
+	completed_tasks_length--;
+	completed_tasks = realloc(completed_tasks, completed_tasks_length * sizeof(Task));
 }
