@@ -217,8 +217,6 @@ void LoadTasksFromFile()
 	{
 		SaveFileText(SAVES_NAME, "\0");
 		return;
-		//loaded_text = malloc(100 * sizeof(char));
-		//strcpy(loaded_text, "*first task\0");
 	}
 
 	if (loaded_text == NULL)
