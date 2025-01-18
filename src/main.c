@@ -22,7 +22,7 @@ const int TASK_HEIGHT_WITH_SPACE = TASK_HEIGHT + SCROLl_SPACE;
 const char *WINDOW_NAME = "To Do List";
 const char *SAVES_NAME = "to-do-saves";
 const char *TAB_NAMES = "Completed; TO-DO";
-const char * BTN_ADD_TITLE = "Add";
+const char *BTN_ADD_TITLE = "Add";
 
 int toggle_id = 1;
 
@@ -80,6 +80,19 @@ void UpdateScrollSize()
 		scroll_content.height = scroll_rect.height;
 }
 
+void Cleanup()
+{
+	for (size_t i = 0; i < completed_tasks_length; i++)
+		free(completed_tasks[i].desc);
+
+	free(completed_tasks);
+
+	for (size_t i = 0; i < to_do_tasks_length; i++)
+		free(to_do_tasks[i].desc);
+
+	free(to_do_tasks);
+}
+
 int main ()
 {
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
@@ -103,6 +116,9 @@ int main ()
 		
 		if (toggle_id == TAB_COMPLETED)
 		{
+			if (completed_tasks_length == 0)
+				DrawText("There are no completed tasks", 160, scroll_content.height / 2, 20, BLACK);
+
 			for (int i = 0; i < completed_tasks_length; i++)
 			{
 				DrawTaskCompleted(completed_tasks[i], scroll_vec.y + TASK_HEIGHT_WITH_SPACE + (i * TASK_HEIGHT_WITH_SPACE), i);
@@ -110,6 +126,9 @@ int main ()
 		}
 		else if (toggle_id == TAB_TO_DO)
 		{
+			if (to_do_tasks_length == 0)
+				DrawText("Enter your first task and click 'Add'", 150, scroll_content.height / 2, 20, BLACK);
+
 			for (int i = 0; i < to_do_tasks_length; i++)
 			{
 				DrawTaskToDo(to_do_tasks[i], scroll_vec.y + TASK_HEIGHT_WITH_SPACE + (i * TASK_HEIGHT_WITH_SPACE), i);
@@ -126,10 +145,8 @@ int main ()
 
 	SaveTasksToFile();
 
-	free(to_do_tasks);
-	free(completed_tasks);
+	Cleanup();
 
-	// destroy the window and cleanup the OpenGL context
 	CloseWindow();
 	return 0;
 }
@@ -199,9 +216,16 @@ void LoadTasksFromFile()
 	else
 	{
 		SaveFileText(SAVES_NAME, "\0");
-		loaded_text = "\0";
+		return;
+		//loaded_text = malloc(100 * sizeof(char));
+		//strcpy(loaded_text, "*first task\0");
 	}
-	//printf(loaded_text);
+
+	if (loaded_text == NULL)
+	{
+		free(loaded_text);
+		return;
+	}
 
 	int i = 0;
 	while (loaded_text[i] != '\0')
@@ -226,7 +250,6 @@ void LoadTasksFromFile()
 	int completed_counter = 0;
 	for (int task_i = 0; task_i < rowCount; task_i++)
 	{
-		printf("%s\n", rows[task_i]);
 		char *row = rows[task_i];
 		char firstChar = row[0];
 		if (firstChar == '*')
@@ -239,13 +262,14 @@ void LoadTasksFromFile()
 		free(row);
 	}
 	free(rows);
+	free(loaded_text);
 }
 
 void removeFirstChar(char *str) {
-    if (str != NULL && strlen(str) > 0) 
+	if (str != NULL && strlen(str) > 0) 
 	{
-        memmove(str, str + 1, strlen(str)); // Shift the string left by one position
-    }
+		memmove(str, str + 1, strlen(str)); // Shift the string left by one position
+	}
 }
 
 void SetTextToDesc(char **desk, char *text, int *counter)
@@ -261,7 +285,7 @@ void RemoveTaskFromToDo(int id)
 	for (int i = id; i < to_do_tasks_length - 1; i++) 
 	{
 		to_do_tasks[i] = to_do_tasks[i + 1];
-    }
+	}
 
 	to_do_tasks_length--;
 	to_do_tasks = realloc(to_do_tasks, to_do_tasks_length * sizeof(Task));
@@ -275,7 +299,7 @@ void MoveTaskFromToDoToComplete(int id)
 }
 
 char **SplitStringIntoRows(const char *input, int *rowCount) {
-    char *inputCopy = strdup(input); // Duplicate input string to avoid modifying the original
+    char *inputCopy = strdup(input);
     if (!inputCopy) {
         printf("Memory allocation failed\n");
         return NULL;
@@ -284,10 +308,8 @@ char **SplitStringIntoRows(const char *input, int *rowCount) {
     char **rows = NULL;
     *rowCount = 0;
 
-    // Tokenize the string using '\n' as the delimiter
     char *line = strtok(inputCopy, "\n");
     while (line) {
-        // Reallocate memory to accommodate the new line
         rows = realloc(rows, (*rowCount + 1) * sizeof(char *));
         if (!rows) {
             printf("Memory reallocation failed\n");
@@ -295,7 +317,6 @@ char **SplitStringIntoRows(const char *input, int *rowCount) {
             return NULL;
         }
 
-        // Duplicate the line and store it in the array
         rows[*rowCount] = strdup(line);
         if (!rows[*rowCount]) {
             printf("Memory allocation failed\n");
