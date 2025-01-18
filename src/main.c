@@ -12,27 +12,42 @@ typedef struct Task
 
 const int WIDTH = 640;
 const int HEIGHT = 480;
-const char *WINDOW_NAME = "To Do List";
+const int DESK_LENGHT = 100;
+const int TASK_HEIGHT = 30;
+const int SCROLl_SPACE = 2;
 const int TAB_COMPLETED = 0;
 const int TAB_TO_DO = 1;
+const int TASK_HEIGHT_WITH_SPACE = TASK_HEIGHT + SCROLl_SPACE;
+
+const char *WINDOW_NAME = "To Do List";
 const char *SAVES_NAME = "to-do-saves";
-const int DESK_LENGHT = 100;
+const char *TAB_NAMES = "Completed; TO-DO";
+const char * BTN_ADD_TITLE = "Add";
 
-Rectangle text_box_rect = {0, HEIGHT - 40, WIDTH - 50, 30};
-char text_box_message[40];
-bool text_box_active = false;
+int toggle_id = 1;
 
-Rectangle group_box_rect = {2, 100, WIDTH - 16, 30};
-Rectangle element_btn_complete_rect = {WIDTH - (14 + 50), 0, 50, 30};
+Rectangle input_rect = {0, HEIGHT - 40, WIDTH - 50, 30};
+char input_text[40];
+bool input_active = false;
+
+Rectangle task_rect = {2, 100, WIDTH - 16, 30};
+Rectangle task_btn_rect = {WIDTH - (14 + 50), 0, 50, 30};
 
 Rectangle btn_add_rect = {WIDTH - 50, HEIGHT - 40, 50, 30};
-const char * BTN_ADD_TITLE = "Add";
 
 Task *to_do_tasks;
 int to_do_tasks_length;
 
 Task *completed_tasks;
 int completed_tasks_length;
+
+Rectangle scroll_rect = {0, 30, WIDTH, HEIGHT - 70};
+Rectangle scroll_content = {0, 30, WIDTH - 14, 1000};
+Rectangle scroll_view = {0, 30, WIDTH - 14, HEIGHT - 70};
+Vector2 scroll_vec;
+
+int active_toggle = 0;
+Rectangle toggle_group_bounds = { 0, 0, WIDTH / 2, 30 };
 
 void LoadTasksFromFile();
 void SaveTasksToFile();
@@ -47,6 +62,24 @@ void AddNewTask(char *desc);
 void CompleteTask(Task task);
 void DeleteTask(int id);
 
+int GetCurrentTabElementCount()
+{
+	if (toggle_id == TAB_COMPLETED)
+	{
+		return completed_tasks_length;
+	}else
+	{
+		return to_do_tasks_length;
+	}
+}
+
+void UpdateScrollSize()
+{
+	scroll_content.height = GetCurrentTabElementCount() * TASK_HEIGHT_WITH_SPACE;
+	if (scroll_content.height < scroll_rect.height)
+		scroll_content.height = scroll_rect.height;
+}
+
 int main ()
 {
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
@@ -54,25 +87,6 @@ int main ()
 	SearchAndSetResourceDir("resources");
 
 	LoadTasksFromFile();
-
-	Rectangle rec;
-	rec.x = 0;
-	rec.y = 0;
-	rec.width = 100;
-	rec.height = 40;
-
-	Rectangle scroll_rect = {0, 30, WIDTH, HEIGHT - 70};
-	Rectangle scroll_content = {0, 30, WIDTH - 14, 1000};
-	Rectangle scroll_view = {0, 30, WIDTH - 14, HEIGHT - 70};
-	Vector2 scroll_vec;
-
-	int active_toggle = 0;
-	int toggle_id = 1;
-	Rectangle toggle_group_bounds = { 0, 0, WIDTH / 2, 30 };
-
-	const char * DEBUG_TEXT = "Cur Toggle ";
-	char toggle_degug_text[20];
-	char cur_toggle_text[2] = "0";
 	
 	while (!WindowShouldClose())
 	{
@@ -80,8 +94,9 @@ int main ()
 
 		ClearBackground(WHITE);
 
-		GuiToggleGroup(toggle_group_bounds, "Completed; TO-DO", &toggle_id);
+		GuiToggleGroup(toggle_group_bounds, TAB_NAMES, &toggle_id);
 
+		UpdateScrollSize();
 		GuiScrollPanel(scroll_rect, NULL, scroll_content, &scroll_vec, &scroll_view);
 
 		BeginScissorMode(scroll_rect.x, scroll_rect.y, scroll_rect.width, scroll_rect.height);
@@ -90,20 +105,21 @@ int main ()
 		{
 			for (int i = 0; i < completed_tasks_length; i++)
 			{
-				DrawTaskCompleted(completed_tasks[i], scroll_vec.y + 32 + (i * 32), i);
+				DrawTaskCompleted(completed_tasks[i], scroll_vec.y + TASK_HEIGHT_WITH_SPACE + (i * TASK_HEIGHT_WITH_SPACE), i);
 			}
 		}
 		else if (toggle_id == TAB_TO_DO)
 		{
 			for (int i = 0; i < to_do_tasks_length; i++)
 			{
-				DrawTaskToDo(to_do_tasks[i], scroll_vec.y + 32 + (i * 32), i);
+				DrawTaskToDo(to_do_tasks[i], scroll_vec.y + TASK_HEIGHT_WITH_SPACE + (i * TASK_HEIGHT_WITH_SPACE), i);
 			}
 		}
 		
 		EndScissorMode();
 
-		DrawAndHandleInputBox();
+		if (toggle_id == TAB_TO_DO)
+			DrawAndHandleInputBox();
 
 		EndDrawing();
 	}
@@ -120,26 +136,26 @@ int main ()
 
 void DrawAndHandleInputBox()
 {
-	if (CheckCollisionPointRec(GetMousePosition(), text_box_rect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) 
+	if (CheckCollisionPointRec(GetMousePosition(), input_rect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) 
 	{
-        text_box_active = true;
+        input_active = true;
     } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) 
 	{
-        text_box_active = false;
+        input_active = false;
     }
 
-	if (GuiTextBox(text_box_rect, text_box_message, sizeof(text_box_message), text_box_active)) 
+	if (GuiTextBox(input_rect, input_text, sizeof(input_text), input_active)) 
 	{
-		text_box_active = !text_box_active;
+		input_active = !input_active;
 
-		AddNewTask(text_box_message);
-		memset(text_box_message, '\0', sizeof(text_box_message));
+		AddNewTask(input_text);
+		memset(input_text, '\0', sizeof(input_text));
     }
 
 	if (GuiButton(btn_add_rect, BTN_ADD_TITLE))
 	{
-		AddNewTask(text_box_message);
-		memset(text_box_message, '\0', sizeof(text_box_message));
+		AddNewTask(input_text);
+		memset(input_text, '\0', sizeof(input_text));
 	}
 }
 
@@ -147,7 +163,7 @@ void DrawTaskCompleted(Task task, int y_pos, int task_id)
 {
 	DrawTaskElement(task, y_pos, task_id);
 
-	if (GuiButton(element_btn_complete_rect, "Delete"))
+	if (GuiButton(task_btn_rect, "Delete"))
 	{
 		DeleteTask(task_id);
 	}
@@ -157,7 +173,7 @@ void DrawTaskToDo(Task task, int y_pos, int task_id)
 {
 	DrawTaskElement(task, y_pos, task_id);
 
-	if (GuiButton(element_btn_complete_rect, "Complete"))
+	if (GuiButton(task_btn_rect, "Complete"))
 	{
 		MoveTaskFromToDoToComplete(task_id);
 	}
@@ -165,11 +181,11 @@ void DrawTaskToDo(Task task, int y_pos, int task_id)
 
 void DrawTaskElement(Task task, int y_pos, int task_id)
 {
-	group_box_rect.y = y_pos;
-	element_btn_complete_rect.y = y_pos;
+	task_rect.y = y_pos;
+	task_btn_rect.y = y_pos;
 
-	GuiPanel(group_box_rect, NULL);
-	DrawText(task.desc, group_box_rect.x + 6, group_box_rect.y + 6, 20, BLACK);
+	GuiPanel(task_rect, NULL);
+	DrawText(task.desc, task_rect.x + 6, task_rect.y + 6, 20, BLACK);
 }
 
 void LoadTasksFromFile()
